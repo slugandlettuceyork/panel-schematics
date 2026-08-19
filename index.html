@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electrical Panels — Directory</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="bolt"></span> PANEL DIRECTORY</a>
+  <div class="spacer"></div>
+  <div class="warn-strip">Always verify power is off manually before working — labels may be inaccurate</div>
+</div>
+
+<div class="wrap">
+  <div class="page-head">
+    <h1>Electrical Panels</h1>
+    <div class="sub">Tap a board to see its schematic and notes. Use search below to find a circuit by name across every board — useful when a label is wrong or missing.</div>
+  </div>
+
+  <div class="search-row">
+    <input class="search-input" id="globalSearch" type="text" placeholder="Search every panel — e.g. &quot;fryer&quot;, &quot;fire alarm&quot;, &quot;beer master&quot;…">
+    <div class="search-count" id="searchCount"></div>
+  </div>
+
+  <div class="panel-grid" id="panelGrid"></div>
+
+  <div class="global-results" id="globalResultsWrap" style="display:none;">
+    <h2>Search results</h2>
+    <ul class="breaker-list" id="globalResults"></ul>
+  </div>
+</div>
+
+<div class="footer-note">
+  Board layouts are transcribed from site photos and may contain errors — items marked <strong>verify</strong> are known-uncertain reads (handwritten or overlapping labels). Edits require sign-in.
+</div>
+
+<script src="assets/panels-data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+async function init(){
+  await App.initAuth();
+  const grid = document.getElementById("panelGrid");
+  grid.innerHTML = "";
+  Object.keys(PANELS).forEach(slug => {
+    const p = PANELS[slug];
+    const a = document.createElement("a");
+    a.className = "panel-card";
+    a.href = `panel.html?p=${encodeURIComponent(slug)}`;
+    a.innerHTML = `
+      <h3>${App.escapeHtml(p.title)}</h3>
+      <p>${App.escapeHtml(p.subtitle || "")}</p>
+      <div class="count">${p.circuits.length} circuit${p.circuits.length===1?"":"s"}</div>
+    `;
+    grid.appendChild(a);
+  });
+  const addCard = document.createElement("div");
+  addCard.className = "panel-card add-new";
+  addCard.textContent = "+ New panels get added here — edit assets/panels-data.js";
+  grid.appendChild(addCard);
+
+  // global search across static labels + live Supabase notes
+  const allNotes = await App.loadAllNotes();
+  const all = getAllCircuitsFlat();
+  const resultsWrap = document.getElementById("globalResultsWrap");
+  const resultsEl = document.getElementById("globalResults");
+  const countEl = document.getElementById("searchCount");
+
+  document.getElementById("globalSearch").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if(!q){ resultsWrap.style.display = "none"; countEl.textContent = ""; return; }
+    const matches = all.filter(c => {
+      const row = allNotes[App.circuitKey(c.panelSlug, c.position)] || {};
+      const hay = [c.label, c.panelTitle, c.position, row.custom_label, row.notes].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+    countEl.textContent = `${matches.length} match${matches.length===1?"":"es"}`;
+    resultsWrap.style.display = matches.length ? "block" : "block";
+    resultsEl.innerHTML = matches.length ? "" : `<li class="small-note">No matches.</li>`;
+    matches.forEach(c => {
+      const row = allNotes[App.circuitKey(c.panelSlug, c.position)] || {};
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <a class="breaker has-note" style="text-decoration:none; display:flex;" href="panel.html?p=${encodeURIComponent(c.panelSlug)}&pos=${encodeURIComponent(c.position)}">
+          <span class="phase-dot ${c.phase || 'none'}"></span>
+          <span class="breaker-text">
+            <span class="breaker-pos">${App.escapeHtml(c.panelTitle)} · ${App.escapeHtml(c.position)}</span>
+            <div class="breaker-label">${App.escapeHtml(row.custom_label || c.label)}</div>
+            ${row.notes ? `<div class="breaker-custom">${App.escapeHtml(row.notes.slice(0,90))}</div>` : ""}
+          </span>
+        </a>`;
+      resultsEl.appendChild(li);
+    });
+  });
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Schematic</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="bolt"></span> PANEL DIRECTORY</a>
+  <div class="spacer"></div>
+  <button class="mode-pill off" id="authPill">Sign in to edit</button>
+</div>
+
+<div class="wrap">
+  <div class="page-head">
+    <h1 id="panelTitle">Loading…</h1>
+    <div class="sub" id="panelSubtitle"></div>
+  </div>
+
+  <div class="search-row">
+    <input class="search-input" id="localSearch" type="text" placeholder="Search this board…">
+    <div class="search-count" id="localCount"></div>
+  </div>
+
+  <div id="boardMount"></div>
+</div>
+
+<div class="footer-note">
+  Tap any breaker to see or edit its notes. Green edge = notes on file. Orange "verify" badge = uncertain reading from the original photo. This is documentation only — always confirm power is isolated with a meter or proving unit before working.
+</div>
+
+<script src="assets/panels-data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const slug = params.get("p");
+const jumpPos = params.get("pos");
+const panelDef = PANELS[slug];
+
+async function init(){
+  await App.initAuth();
+  updateAuthPill();
+  document.addEventListener("authchange", updateAuthPill);
+
+  if(!panelDef){
+    document.getElementById("panelTitle").textContent = "Panel not found";
+    document.getElementById("panelSubtitle").textContent = `No panel with id "${slug}". Check the link, or add it to assets/panels-data.js.`;
+    return;
+  }
+
+  document.getElementById("panelTitle").textContent = panelDef.title;
+  document.getElementById("panelSubtitle").textContent = panelDef.subtitle || "";
+  document.title = panelDef.title + " — Panel Schematic";
+
+  const mount = document.getElementById("boardMount");
+  const notesMap = await App.loadNotesForPanel(slug);
+  App.renderBoard(mount, slug, panelDef, notesMap);
+
+  document.addEventListener("notesupdated", async () => {
+    const fresh = await App.loadNotesForPanel(slug);
+    App.renderBoard(mount, slug, panelDef, fresh);
+  });
+
+  App.wireSearch(
+    document.getElementById("localSearch"),
+    mount,
+    document.getElementById("localCount")
+  );
+
+  if(jumpPos){
+    const target = [...mount.querySelectorAll(".breaker")].find(b =>
+      b.querySelector(".breaker-pos")?.textContent === jumpPos
+    );
+    if(target){ target.click(); target.scrollIntoView({behavior:"smooth", block:"center"}); }
+  }
+}
+
+function updateAuthPill(){
+  const pill = document.getElementById("authPill");
+  if(App.isEditor()){
+    pill.textContent = "Editing enabled — sign out";
+    pill.classList.remove("off");
+    pill.onclick = async () => { await App.logout(); };
+  } else {
+    pill.textContent = "Sign in to edit";
+    pill.classList.add("off");
+    pill.onclick = () => {
+      const first = document.querySelector(".breaker");
+      if(first) first.click();
+    };
+  }
+}
+
+init();
+</script>
+</body>
+</html>

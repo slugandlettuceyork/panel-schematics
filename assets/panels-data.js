@@ -80,14 +80,15 @@ const PANELS = {
       { position: "L4", side: "L", phase: "R", label: "Beer Master" },
       { position: "L5", side: "L", phase: "Y", label: "Beer Master" },
       { position: "L6", side: "L", phase: "B", label: "Beer Master" },
-      { position: "L7", side: "L", phase: "R", label: "Beer Master" },
+      { position: "L7-9", side: "L", phase: "RYB", label: "Beer Master — triple-pole breaker (spans positions 7–9)" },
 
-      { position: "R1", side: "R", phase: "R", label: "Supply to 100A HVAC Panel MCB" },
-      { position: "R2", side: "R", phase: "Y", label: "Supply to 100A HVAC Panel MCB" },
-      { position: "R3", side: "R", phase: "B", label: "Supply to 100A HVAC Panel MCB" },
-      { position: "R4", side: "R", phase: "R", label: "Supply to 100A DB A MCB" },
-      { position: "R5", side: "R", phase: "Y", label: "Supply to 100A DB A MCB" },
-      { position: "R6", side: "R", phase: "B", label: "Supply to 100A DB A MCB" },
+      { position: "R1-3", side: "R", phase: "RYB", label: "New Cellar DB — triple-pole breaker (spans positions 1–3)" },
+      { position: "R4", side: "R", phase: "R", label: "Supply to 100A HVAC Panel MCB" },
+      { position: "R5", side: "R", phase: "Y", label: "Supply to 100A HVAC Panel MCB" },
+      { position: "R6", side: "R", phase: "B", label: "Supply to 100A HVAC Panel MCB" },
+      { position: "R7", side: "R", phase: "R", label: "Supply to 100A DB A MCB" },
+      { position: "R8", side: "R", phase: "Y", label: "Supply to 100A DB A MCB" },
+      { position: "R9", side: "R", phase: "B", label: "Supply to 100A DB A MCB" },
     ]
   },
 

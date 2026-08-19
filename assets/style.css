@@ -36,6 +36,7 @@ body{
   font-family: var(--sans);
   line-height: 1.45;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 a{color:inherit;}
@@ -176,6 +177,8 @@ a{color:inherit;}
   font-family: var(--sans);
   color: var(--ink);
   transition: box-shadow .1s ease, border-color .1s ease;
+  position: relative;
+  overflow: hidden;
 }
 .breaker.triple{
   /* Visually spans ~3 single-pole slots (3 tile heights + 2 list gaps)
@@ -226,9 +229,11 @@ a{color:inherit;}
 }
 .badge{
   font-family: var(--mono); font-size:9.5px; padding:2px 5px;
-  border-radius:2px; flex:none; text-transform:uppercase; letter-spacing:.04em;
+  border-radius:2px; text-transform:uppercase; letter-spacing:.04em;
+  position:absolute; top:8px; right:8px; z-index:1;
 }
 .badge.warn{background:#fceccb; color:#7a4e0c;}
+.breaker.flagged .breaker-text{ padding-right: 52px; }
 
 mark{background: var(--phase-y); color:#221f1a; border-radius:2px; padding:0 1px;}
 

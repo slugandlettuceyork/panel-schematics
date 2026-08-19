@@ -172,9 +172,15 @@ a{color:inherit;}
   cursor:pointer;
   text-align:left;
   width:100%;
+  min-height:78px;
   font-family: var(--sans);
   color: var(--ink);
   transition: box-shadow .1s ease, border-color .1s ease;
+}
+.breaker.triple{
+  /* Visually spans ~3 single-pole slots (3 tile heights + 2 list gaps)
+     so both columns stay aligned to real physical position count. */
+  min-height: calc(78px * 3 + 6px * 2);
 }
 .breaker:hover, .breaker:focus-visible{
   border-color: var(--steel);
@@ -218,10 +224,6 @@ a{color:inherit;}
   font-size:13.5px; font-weight:600; line-height:1.25;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.breaker-custom{
-  font-size:11.5px; color:#5c5745; font-style:italic;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
 .badge{
   font-family: var(--mono); font-size:9.5px; padding:2px 5px;
   border-radius:2px; flex:none; text-transform:uppercase; letter-spacing:.04em;
@@ -242,11 +244,18 @@ mark{background: var(--phase-y); color:#221f1a; border-radius:2px; padding:0 1px
 .tag-tile.selected{
   background: var(--ink); border-color: var(--ink); color:#fff;
 }
+.breaker-custom{
+  font-size:11.5px; color:#5c5745; font-style:italic;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  min-height:14px; line-height:14px;
+}
 .area-chip{
-  display:inline-block; font-family:var(--mono); font-size:10px;
+  display:block; font-family:var(--mono); font-size:10px;
   color:#5c5745; background:#e3ddc6; border-radius:3px; padding:1px 6px;
   margin-top:3px;
+  min-height:14px; line-height:14px; box-sizing:content-box;
 }
+.invisible{ visibility:hidden; background:transparent !important; }
 .area-chip.standalone{font-size:11.5px; padding:4px 9px; margin:0 0 12px;}
 
 /* ---------- modal ---------- */

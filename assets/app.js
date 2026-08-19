@@ -180,22 +180,29 @@ const App = (() => {
   function buildBreakerEl(panelSlug, c, notesMap){
     const row = notesMap[circuitKey(panelSlug, c.position)];
     const areaTxt = areaLabel(row);
+    const isTriple = c.phase === "RYB";
     const li = document.createElement("li");
     const btn = document.createElement("button");
-    btn.className = "breaker" + (row && (row.notes || row.custom_label) ? " has-note" : "") + (c.flag ? " flagged" : "");
+    btn.className = "breaker"
+      + (row && (row.notes || row.custom_label) ? " has-note" : "")
+      + (c.flag ? " flagged" : "")
+      + (isTriple ? " triple" : "");
     btn.type = "button";
     btn.dataset.searchText = [
       c.position, c.label, row?.custom_label, row?.notes, areaTxt
     ].filter(Boolean).join(" ").toLowerCase();
 
+    const hasCustom = !!row?.custom_label;
+    const hasArea = !!areaTxt;
+
     btn.innerHTML = `
       <span class="phase-dot ${c.phase || 'none'}"></span>
       <span class="breaker-toggle"></span>
       <span class="breaker-text">
-        <span class="breaker-pos">${escapeHtml(c.position)}</span>
+        <span class="breaker-pos">${escapeHtml(c.position)}${isTriple ? " (3 poles)" : ""}</span>
         <div class="breaker-label">${escapeHtml(row?.custom_label || c.label)}</div>
-        ${row?.custom_label ? `<div class="breaker-custom">as-labelled: ${escapeHtml(c.label)}</div>` : ""}
-        ${areaTxt ? `<div class="area-chip">${escapeHtml(areaTxt)}</div>` : ""}
+        <div class="breaker-custom${hasCustom ? "" : " invisible"}">${hasCustom ? "as-labelled: " + escapeHtml(c.label) : "\u00A0"}</div>
+        <div class="area-chip${hasArea ? "" : " invisible"}">${hasArea ? escapeHtml(areaTxt) : "\u00A0"}</div>
       </span>
       ${c.flag ? `<span class="badge warn">verify</span>` : ""}
     `;

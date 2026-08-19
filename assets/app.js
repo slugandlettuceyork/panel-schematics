@@ -232,7 +232,7 @@ const App = (() => {
         </div>
         <div class="modal-meta">
           Position ${escapeHtml(circuitDef.position)}
-          ${circuitDef.phase ? ` · Phase ${circuitDef.phase}` : ""}
+          ${circuitDef.phase ? ` · ${circuitDef.phase === 'RYB' ? 'Triple-pole (R/Y/B)' : 'Phase ' + circuitDef.phase}` : ""}
           · As printed on panel: "${escapeHtml(circuitDef.label)}"
         </div>
         ${circuitDef.flag ? `<div class="modal-flag">⚠ ${escapeHtml(circuitDef.flagNote || "This reading is uncertain — please verify against the physical panel.")}</div>` : ""}

@@ -192,6 +192,9 @@ a{color:inherit;}
 .phase-dot.Y{background:var(--phase-y);}
 .phase-dot.B{background:var(--phase-b);}
 .phase-dot.none{background:#c7c2af; border:1px solid #a9a385;}
+.phase-dot.RYB{
+  background: linear-gradient(90deg, var(--phase-r) 0 33%, var(--phase-y) 33% 66%, var(--phase-b) 66% 100%);
+}
 
 .breaker-toggle{
   width:16px; height:22px; flex:none;

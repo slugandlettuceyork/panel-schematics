@@ -39,6 +39,7 @@ const PANELS = {
       { position: "L4",  side: "L", phase: "R", label: "(no printed label)", flag: true, flagNote: "Handwritten 'MICROWAVE' near this breaker — position uncertain, verify which breaker it refers to." },
       { position: "L5",  side: "L", phase: "Y", label: "Bar Power" },
       { position: "L6",  side: "L", phase: "B", label: "Corridor Lights" },
+      { position: "L6b", side: "L", phase: null, label: "(no printed label)" },
       { position: "L7",  side: "L", phase: "R", label: "Spot Lights", flag: true, flagNote: "Handwritten note nearby: 'IN LINE COOLER SKT'S' — may relate to this or a neighbouring circuit." },
       { position: "L8",  side: "L", phase: "Y", label: "EMG Lights — Main Bar", flag: true, flagNote: "Handwritten overlay partly illegible." },
       { position: "L9",  side: "L", phase: "B", label: "Gents + Ladies Lights" },
@@ -51,8 +52,10 @@ const PANELS = {
       { position: "L16", side: "L", phase: "R", label: "Dishwasher" },
       { position: "L17", side: "L", phase: "Y", label: "Dishwasher" },
 
+      { position: "R0",  side: "R", phase: null, label: "(no printed label)" },
       { position: "R1",  side: "R", phase: "R", label: "Signs" },
       { position: "R2",  side: "R", phase: "Y", label: "Lighting" },
+      { position: "R2b", side: "R", phase: null, label: "(no printed label)" },
       { position: "R3",  side: "R", phase: "B", label: "Hand Dryer — Ladies" },
       { position: "R4",  side: "R", phase: "R", label: "Hand Dryer — Gents" },
       { position: "R5",  side: "R", phase: "Y", label: "Coffee Grinder" },

@@ -43,11 +43,15 @@ const App = (() => {
   }
 
   function areaLabel(row){
-    if(!row?.area) return "";
-    const tag = findAreaTagLocal(row.area);
-    const main = tag?.label || "(unknown tag)";
-    const sub = row.area_detail ? (tag?.subOptions?.find(s => s.id === row.area_detail)?.label || "") : "";
-    return sub ? `${main} — ${sub}` : main;
+    const areas = Array.isArray(row?.area) ? row.area : (row?.area ? [row.area] : []);
+    if(!areas.length) return "";
+    const details = Array.isArray(row?.area_detail) ? row.area_detail : (row?.area_detail ? [row.area_detail] : []);
+    return areas.map(id => {
+      const tag = findAreaTagLocal(id);
+      const label = tag?.label || "(unknown tag)";
+      const subs = (tag?.subOptions || []).filter(s => details.includes(s.id)).map(s => s.label);
+      return subs.length ? `${label} (${subs.join(", ")})` : label;
+    }).join(", ");
   }
 
   // ---------------- auth (PIN-based) ----------------
@@ -120,8 +124,8 @@ const App = (() => {
       p_position: position,
       p_custom_label: custom_label || "",
       p_notes: notes || "",
-      p_area: area || "",
-      p_area_detail: area_detail || ""
+      p_areas: area || [],
+      p_area_details: area_detail || []
     });
     if(error){
       if(/pin/i.test(error.message)) lockEditing(); // stale/wrong PIN — force re-entry
@@ -295,13 +299,13 @@ const App = (() => {
     }
   }
 
-  // currently selected area/sub-tag while the edit form is open
-  let pickedArea = "";
-  let pickedAreaDetail = "";
+  // currently selected area/sub-tags while the edit form is open (multi-select)
+  let pickedAreas = [];
+  let pickedAreaDetails = [];
 
-  function buildAreaTagPicker(initialArea, initialDetail){
-    pickedArea = initialArea || "";
-    pickedAreaDetail = initialDetail || "";
+  function buildAreaTagPicker(initialAreas, initialDetails){
+    pickedAreas = Array.isArray(initialAreas) ? [...initialAreas] : (initialAreas ? [initialAreas] : []);
+    pickedAreaDetails = Array.isArray(initialDetails) ? [...initialDetails] : (initialDetails ? [initialDetails] : []);
 
     function renderMain(){
       const row = document.getElementById("areaTagRow");
@@ -313,11 +317,17 @@ const App = (() => {
       areaTagTree.forEach(tag => {
         const t = document.createElement("button");
         t.type = "button";
-        t.className = "tag-tile" + (pickedArea === tag.id ? " selected" : "");
+        t.className = "tag-tile" + (pickedAreas.includes(tag.id) ? " selected" : "");
         t.textContent = tag.label;
         t.addEventListener("click", () => {
-          pickedArea = (pickedArea === tag.id) ? "" : tag.id; // tap again to clear
-          pickedAreaDetail = "";
+          if(pickedAreas.includes(tag.id)){
+            pickedAreas = pickedAreas.filter(id => id !== tag.id);
+            // drop any sub-selections that belonged only to this tag
+            const subIds = (tag.subOptions || []).map(s => s.id);
+            pickedAreaDetails = pickedAreaDetails.filter(id => !subIds.includes(id));
+          } else {
+            pickedAreas.push(tag.id);
+          }
           renderMain();
           renderSub();
         });
@@ -327,24 +337,39 @@ const App = (() => {
 
     function renderSub(){
       const subRow = document.getElementById("subTagRow");
-      const tag = findAreaTagLocal(pickedArea);
-      if(!tag || !tag.subOptions){
+      const groups = areaTagTree.filter(t => pickedAreas.includes(t.id) && t.subOptions && t.subOptions.length);
+      if(!groups.length){
         subRow.style.display = "none";
         subRow.innerHTML = "";
         return;
       }
-      subRow.style.display = "flex";
+      subRow.style.display = "block";
       subRow.innerHTML = "";
-      tag.subOptions.forEach(sub => {
-        const t = document.createElement("button");
-        t.type = "button";
-        t.className = "tag-tile sub" + (pickedAreaDetail === sub.id ? " selected" : "");
-        t.textContent = sub.label;
-        t.addEventListener("click", () => {
-          pickedAreaDetail = (pickedAreaDetail === sub.id) ? "" : sub.id;
-          renderSub();
+      groups.forEach(tag => {
+        const groupWrap = document.createElement("div");
+        groupWrap.style.marginBottom = "8px";
+        const groupLabel = document.createElement("div");
+        groupLabel.className = "small-note";
+        groupLabel.style.marginBottom = "4px";
+        groupLabel.textContent = `${tag.label} — select any that apply:`;
+        groupWrap.appendChild(groupLabel);
+        const tilesRow = document.createElement("div");
+        tilesRow.className = "tag-row";
+        tag.subOptions.forEach(sub => {
+          const t = document.createElement("button");
+          t.type = "button";
+          t.className = "tag-tile sub" + (pickedAreaDetails.includes(sub.id) ? " selected" : "");
+          t.textContent = sub.label;
+          t.addEventListener("click", () => {
+            pickedAreaDetails = pickedAreaDetails.includes(sub.id)
+              ? pickedAreaDetails.filter(id => id !== sub.id)
+              : [...pickedAreaDetails, sub.id];
+            renderSub();
+          });
+          tilesRow.appendChild(t);
         });
-        subRow.appendChild(t);
+        groupWrap.appendChild(tilesRow);
+        subRow.appendChild(groupWrap);
       });
     }
 
@@ -358,8 +383,8 @@ const App = (() => {
     const { panelSlug, circuitDef, notesMap } = modalState;
     const custom_label = document.getElementById("f_label").value.trim();
     const notes = document.getElementById("f_notes").value.trim();
-    const area = pickedArea;
-    const area_detail = pickedAreaDetail;
+    const area = pickedAreas;
+    const area_detail = pickedAreaDetails;
     const saveMsg = document.getElementById("saveMsg");
     saveMsg.innerHTML = `<div class="small-note">Saving…</div>`;
     const err = await saveNote(panelSlug, circuitDef.position, { custom_label, notes, area, area_detail });

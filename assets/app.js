@@ -82,14 +82,16 @@ const App = (() => {
     return map;
   }
 
-  async function saveNote(panelSlug, position, { custom_label, notes }){
+  async function saveNote(panelSlug, position, { custom_label, notes, area, area_detail }){
     if(!sb || !isEditor()) return "Editing is locked — enter the PIN first.";
     const { data, error } = await sb.rpc("save_circuit_note", {
       p_pin: unlockedPin,
       p_panel_slug: panelSlug,
       p_position: position,
       p_custom_label: custom_label || "",
-      p_notes: notes || ""
+      p_notes: notes || "",
+      p_area: area || "",
+      p_area_detail: area_detail || ""
     });
     if(error){
       if(/pin/i.test(error.message)) lockEditing(); // stale/wrong PIN — force re-entry
@@ -141,14 +143,23 @@ const App = (() => {
     mountEl.appendChild(boardEl);
   }
 
+  function areaLabel(row){
+    if(!row?.area) return "";
+    const tag = (typeof findAreaTag === "function") ? findAreaTag(row.area) : null;
+    const main = tag?.label || row.area;
+    const sub = row.area_detail ? (tag?.subOptions?.find(s => s.id === row.area_detail)?.label || row.area_detail) : "";
+    return sub ? `${main} — ${sub}` : main;
+  }
+
   function buildBreakerEl(panelSlug, c, notesMap){
     const row = notesMap[circuitKey(panelSlug, c.position)];
+    const areaTxt = areaLabel(row);
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.className = "breaker" + (row && (row.notes || row.custom_label) ? " has-note" : "") + (c.flag ? " flagged" : "");
     btn.type = "button";
     btn.dataset.searchText = [
-      c.position, c.label, row?.custom_label, row?.notes
+      c.position, c.label, row?.custom_label, row?.notes, areaTxt
     ].filter(Boolean).join(" ").toLowerCase();
 
     btn.innerHTML = `
@@ -158,6 +169,7 @@ const App = (() => {
         <span class="breaker-pos">${escapeHtml(c.position)}</span>
         <div class="breaker-label">${escapeHtml(row?.custom_label || c.label)}</div>
         ${row?.custom_label ? `<div class="breaker-custom">as-labelled: ${escapeHtml(c.label)}</div>` : ""}
+        ${areaTxt ? `<div class="area-chip">${escapeHtml(areaTxt)}</div>` : ""}
       </span>
       ${c.flag ? `<span class="badge warn">verify</span>` : ""}
     `;
@@ -217,7 +229,14 @@ const App = (() => {
       return;
     }
     if(isEditor()){
+      const selectedArea = row.area || "";
+      const selectedDetail = row.area_detail || "";
       body.innerHTML = `
+        <div class="modal-section">
+          <label>Area</label>
+          <div class="tag-row" id="areaTagRow"></div>
+          <div class="tag-row" id="subTagRow" style="display:none; margin-top:6px;"></div>
+        </div>
         <div class="modal-section">
           <label>Circuit name (override)</label>
           <input type="text" id="f_label" value="${escapeHtml(row.custom_label || "")}" placeholder="Leave blank to keep the printed label">
@@ -234,11 +253,14 @@ const App = (() => {
         <button class="btn-ghost" id="changePinBtn" style="margin-top:8px;">Change PIN</button>
         <div class="small-note">Saved changes are visible to everyone immediately.</div>
       `;
+      buildAreaTagPicker(selectedArea, selectedDetail);
       document.getElementById("saveBtn").addEventListener("click", onSaveClicked);
       document.getElementById("lockBtn").addEventListener("click", () => { lockEditing(); closeModal(); });
       document.getElementById("changePinBtn").addEventListener("click", showChangePinForm);
     } else {
+      const areaTxt = areaLabel(row);
       body.innerHTML = `
+        ${areaTxt ? `<div class="area-chip standalone">${escapeHtml(areaTxt)}</div>` : ""}
         <div class="modal-section">
           <label>Notes</label>
           <div class="notes-view ${row.notes ? "" : "empty"}">${escapeHtml(row.notes || "")}</div>
@@ -251,20 +273,77 @@ const App = (() => {
     }
   }
 
+  // currently selected area/sub-tag while the edit form is open
+  let pickedArea = "";
+  let pickedAreaDetail = "";
+
+  function buildAreaTagPicker(initialArea, initialDetail){
+    pickedArea = initialArea || "";
+    pickedAreaDetail = initialDetail || "";
+
+    function renderMain(){
+      const row = document.getElementById("areaTagRow");
+      row.innerHTML = "";
+      AREA_TAGS.forEach(tag => {
+        const t = document.createElement("button");
+        t.type = "button";
+        t.className = "tag-tile" + (pickedArea === tag.id ? " selected" : "");
+        t.textContent = tag.label;
+        t.addEventListener("click", () => {
+          pickedArea = (pickedArea === tag.id) ? "" : tag.id; // tap again to clear
+          pickedAreaDetail = "";
+          renderMain();
+          renderSub();
+        });
+        row.appendChild(t);
+      });
+    }
+
+    function renderSub(){
+      const subRow = document.getElementById("subTagRow");
+      const tag = findAreaTag(pickedArea);
+      if(!tag || !tag.subOptions){
+        subRow.style.display = "none";
+        subRow.innerHTML = "";
+        return;
+      }
+      subRow.style.display = "flex";
+      subRow.innerHTML = "";
+      tag.subOptions.forEach(sub => {
+        const t = document.createElement("button");
+        t.type = "button";
+        t.className = "tag-tile sub" + (pickedAreaDetail === sub.id ? " selected" : "");
+        t.textContent = sub.label;
+        t.addEventListener("click", () => {
+          pickedAreaDetail = (pickedAreaDetail === sub.id) ? "" : sub.id;
+          renderSub();
+        });
+        subRow.appendChild(t);
+      });
+    }
+
+    renderMain();
+    renderSub();
+  }
+
+
+
   async function onSaveClicked(){
     const { panelSlug, circuitDef, notesMap } = modalState;
     const custom_label = document.getElementById("f_label").value.trim();
     const notes = document.getElementById("f_notes").value.trim();
+    const area = pickedArea;
+    const area_detail = pickedAreaDetail;
     const saveMsg = document.getElementById("saveMsg");
     saveMsg.innerHTML = `<div class="small-note">Saving…</div>`;
-    const err = await saveNote(panelSlug, circuitDef.position, { custom_label, notes });
+    const err = await saveNote(panelSlug, circuitDef.position, { custom_label, notes, area, area_detail });
     if(err){
       saveMsg.innerHTML = `<div class="err">Couldn't save: ${escapeHtml(err)}</div>`;
       return;
     }
     saveMsg.innerHTML = `<div class="ok-msg">Saved.</div>`;
     notesMap[circuitKey(panelSlug, circuitDef.position)] = {
-      panel_slug: panelSlug, position: circuitDef.position, custom_label, notes
+      panel_slug: panelSlug, position: circuitDef.position, custom_label, notes, area, area_detail
     };
     document.dispatchEvent(new CustomEvent("notesupdated"));
   }

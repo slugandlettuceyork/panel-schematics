@@ -39,6 +39,7 @@
 </div>
 
 <script src="assets/panels-data.js"></script>
+<script src="assets/area-tags.js"></script>
 <script src="assets/app.js"></script>
 <script>
 async function init(){
@@ -74,7 +75,9 @@ async function init(){
     if(!q){ resultsWrap.style.display = "none"; countEl.textContent = ""; return; }
     const matches = all.filter(c => {
       const row = allNotes[App.circuitKey(c.panelSlug, c.position)] || {};
-      const hay = [c.label, c.panelTitle, c.position, row.custom_label, row.notes].filter(Boolean).join(" ").toLowerCase();
+      const areaTag = row.area ? findAreaTag(row.area) : null;
+      const areaTxt = [areaTag?.label, areaTag?.subOptions?.find(s => s.id === row.area_detail)?.label].filter(Boolean).join(" ");
+      const hay = [c.label, c.panelTitle, c.position, row.custom_label, row.notes, areaTxt].filter(Boolean).join(" ").toLowerCase();
       return hay.includes(q);
     });
     countEl.textContent = `${matches.length} match${matches.length===1?"":"es"}`;
@@ -82,6 +85,8 @@ async function init(){
     resultsEl.innerHTML = matches.length ? "" : `<li class="small-note">No matches.</li>`;
     matches.forEach(c => {
       const row = allNotes[App.circuitKey(c.panelSlug, c.position)] || {};
+      const areaTag = row.area ? findAreaTag(row.area) : null;
+      const areaTxt = areaTag ? [areaTag.label, areaTag.subOptions?.find(s => s.id === row.area_detail)?.label].filter(Boolean).join(" — ") : "";
       const li = document.createElement("li");
       li.innerHTML = `
         <a class="breaker has-note" style="text-decoration:none; display:flex;" href="panel.html?p=${encodeURIComponent(c.panelSlug)}&pos=${encodeURIComponent(c.position)}">
@@ -89,6 +94,7 @@ async function init(){
           <span class="breaker-text">
             <span class="breaker-pos">${App.escapeHtml(c.panelTitle)} · ${App.escapeHtml(c.position)}</span>
             <div class="breaker-label">${App.escapeHtml(row.custom_label || c.label)}</div>
+            ${areaTxt ? `<div class="area-chip">${App.escapeHtml(areaTxt)}</div>` : ""}
             ${row.notes ? `<div class="breaker-custom">${App.escapeHtml(row.notes.slice(0,90))}</div>` : ""}
           </span>
         </a>`;

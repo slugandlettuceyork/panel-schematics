@@ -30,7 +30,7 @@ const App = (() => {
 
   async function verifyPin(pin){
     if(!sb) return "Supabase isn't configured yet.";
-    if(!/^[0-9]{6}$/.test(pin)) return "PIN must be exactly 6 digits.";
+    if(!/^[0-9]{4,8}$/.test(pin)) return "Enter your PIN.";
     const { data, error } = await sb.rpc("verify_edit_pin", { pin });
     if(error) return error.message;
     if(!data) return "Incorrect PIN.";
@@ -46,7 +46,7 @@ const App = (() => {
 
   async function changePin(oldPin, newPin){
     if(!sb) return "Supabase isn't configured yet.";
-    if(!/^[0-9]{6}$/.test(newPin)) return "New PIN must be exactly 6 digits.";
+    if(!/^[0-9]{7}$/.test(newPin)) return "New PIN must be exactly 7 digits.";
     const { data, error } = await sb.rpc("change_edit_pin", { old_pin: oldPin, new_pin: newPin });
     if(error) return error.message.replace(/^.*?:\s*/, "");
     unlockedPin = newPin;
@@ -273,8 +273,8 @@ const App = (() => {
     const body = document.getElementById("modalBody");
     body.innerHTML = `
       <div class="modal-section">
-        <label>Enter 6-digit PIN</label>
-        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="pinInput" placeholder="••••••">
+        <label>Enter PIN</label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" id="pinInput" placeholder="•••••••">
       </div>
       <div id="pinMsg"></div>
       <div class="btn-row">
@@ -300,11 +300,11 @@ const App = (() => {
     body.innerHTML = `
       <div class="modal-section">
         <label>Current PIN</label>
-        <input type="password" inputmode="numeric" maxlength="6" id="oldPin">
+        <input type="password" inputmode="numeric" maxlength="8" id="oldPin">
       </div>
       <div class="modal-section">
-        <label>New 6-digit PIN</label>
-        <input type="password" inputmode="numeric" maxlength="6" id="newPin">
+        <label>New 7-digit PIN</label>
+        <input type="password" inputmode="numeric" maxlength="7" id="newPin">
       </div>
       <div id="cpMsg"></div>
       <div class="btn-row">

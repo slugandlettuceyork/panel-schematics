@@ -12,7 +12,7 @@
 <div class="topbar">
   <a class="brand" href="index.html"><span class="bolt"></span> PANEL DIRECTORY</a>
   <div class="spacer"></div>
-  <button class="mode-pill off" id="authPill">Sign in to edit</button>
+  <button class="mode-pill off" id="authPill">Enter PIN to edit</button>
 </div>
 
 <div class="wrap">
@@ -82,11 +82,11 @@ async function init(){
 function updateAuthPill(){
   const pill = document.getElementById("authPill");
   if(App.isEditor()){
-    pill.textContent = "Editing enabled — sign out";
+    pill.textContent = "Editing unlocked — lock";
     pill.classList.remove("off");
-    pill.onclick = async () => { await App.logout(); };
+    pill.onclick = () => App.lockEditing();
   } else {
-    pill.textContent = "Sign in to edit";
+    pill.textContent = "Enter PIN to edit";
     pill.classList.add("off");
     pill.onclick = () => {
       const first = document.querySelector(".breaker");

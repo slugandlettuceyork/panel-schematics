@@ -17,37 +17,40 @@ const sb = (SUPABASE_URL.startsWith("http"))
 
 const App = (() => {
 
-  let session = null;
+  let unlockedPin = null; // the verified PIN, held in memory only — cleared on page reload/close
   let notesCache = {}; // key: `${panelSlug}::${position}` -> row
 
-  // ---------------- auth ----------------
+  // ---------------- auth (PIN-based) ----------------
 
   async function initAuth(){
-    if(!sb) return;
-    const { data } = await sb.auth.getSession();
-    session = data.session;
-    sb.auth.onAuthStateChange((_evt, newSession) => {
-      session = newSession;
-      document.dispatchEvent(new CustomEvent("authchange"));
-    });
     document.dispatchEvent(new CustomEvent("authchange"));
   }
 
-  function isEditor(){ return !!session; }
+  function isEditor(){ return !!unlockedPin; }
 
-  async function login(email, password){
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    return error ? error.message : null;
+  async function verifyPin(pin){
+    if(!sb) return "Supabase isn't configured yet.";
+    if(!/^[0-9]{6}$/.test(pin)) return "PIN must be exactly 6 digits.";
+    const { data, error } = await sb.rpc("verify_edit_pin", { pin });
+    if(error) return error.message;
+    if(!data) return "Incorrect PIN.";
+    unlockedPin = pin;
+    document.dispatchEvent(new CustomEvent("authchange"));
+    return null;
   }
 
-  async function logout(){
-    await sb.auth.signOut();
+  function lockEditing(){
+    unlockedPin = null;
+    document.dispatchEvent(new CustomEvent("authchange"));
   }
 
-  async function sendPasswordReset(email){
-    const redirectTo = new URL("reset-password.html", window.location.href).toString();
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
-    return error ? error.message : null;
+  async function changePin(oldPin, newPin){
+    if(!sb) return "Supabase isn't configured yet.";
+    if(!/^[0-9]{6}$/.test(newPin)) return "New PIN must be exactly 6 digits.";
+    const { data, error } = await sb.rpc("change_edit_pin", { old_pin: oldPin, new_pin: newPin });
+    if(error) return error.message.replace(/^.*?:\s*/, "");
+    unlockedPin = newPin;
+    return null;
   }
 
   // ---------------- notes data ----------------
@@ -80,18 +83,19 @@ const App = (() => {
   }
 
   async function saveNote(panelSlug, position, { custom_label, notes }){
-    if(!sb || !isEditor()) return "Not signed in.";
-    const { error } = await sb
-      .from("circuit_notes")
-      .upsert({
-        panel_slug: panelSlug,
-        position: position,
-        custom_label: custom_label || "",
-        notes: notes || "",
-        updated_at: new Date().toISOString(),
-        updated_by: session.user.email
-      }, { onConflict: "panel_slug,position" });
-    return error ? error.message : null;
+    if(!sb || !isEditor()) return "Editing is locked — enter the PIN first.";
+    const { data, error } = await sb.rpc("save_circuit_note", {
+      p_pin: unlockedPin,
+      p_panel_slug: panelSlug,
+      p_position: position,
+      p_custom_label: custom_label || "",
+      p_notes: notes || ""
+    });
+    if(error){
+      if(/pin/i.test(error.message)) lockEditing(); // stale/wrong PIN — force re-entry
+      return error.message.replace(/^.*?:\s*/, "");
+    }
+    return null;
   }
 
   // ---------------- rendering: schematic board ----------------
@@ -225,12 +229,14 @@ const App = (() => {
         <div id="saveMsg"></div>
         <div class="btn-row">
           <button class="btn btn-primary" id="saveBtn">Save changes</button>
-          <button class="btn btn-secondary" id="signOutBtn">Sign out</button>
+          <button class="btn btn-secondary" id="lockBtn">Lock editing</button>
         </div>
-        <div class="small-note">Signed in as ${escapeHtml(session.user.email)}. Saved changes are visible to everyone immediately.</div>
+        <button class="btn-ghost" id="changePinBtn" style="margin-top:8px;">Change PIN</button>
+        <div class="small-note">Saved changes are visible to everyone immediately.</div>
       `;
       document.getElementById("saveBtn").addEventListener("click", onSaveClicked);
-      document.getElementById("signOutBtn").addEventListener("click", async () => { await logout(); closeModal(); });
+      document.getElementById("lockBtn").addEventListener("click", () => { lockEditing(); closeModal(); });
+      document.getElementById("changePinBtn").addEventListener("click", showChangePinForm);
     } else {
       body.innerHTML = `
         <div class="modal-section">
@@ -238,10 +244,10 @@ const App = (() => {
           <div class="notes-view ${row.notes ? "" : "empty"}">${escapeHtml(row.notes || "")}</div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-secondary" id="editModeBtn">Sign in to edit</button>
+          <button class="btn btn-secondary" id="editModeBtn">Enter PIN to edit</button>
         </div>
       `;
-      document.getElementById("editModeBtn").addEventListener("click", showLoginForm);
+      document.getElementById("editModeBtn").addEventListener("click", showPinForm);
     }
   }
 
@@ -263,41 +269,62 @@ const App = (() => {
     document.dispatchEvent(new CustomEvent("notesupdated"));
   }
 
-  function showLoginForm(){
+  function showPinForm(){
     const body = document.getElementById("modalBody");
     body.innerHTML = `
       <div class="modal-section">
-        <label>Email</label>
-        <input type="email" id="loginEmail" placeholder="you@yourcompany.com">
+        <label>Enter 6-digit PIN</label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="pinInput" placeholder="••••••">
       </div>
-      <div class="modal-section">
-        <label>Password</label>
-        <input type="password" id="loginPassword">
-      </div>
-      <div id="loginMsg"></div>
+      <div id="pinMsg"></div>
       <div class="btn-row">
-        <button class="btn btn-primary" id="loginBtn">Sign in</button>
-        <button class="btn btn-ghost" id="forgotBtn">Forgot password?</button>
+        <button class="btn btn-primary" id="unlockBtn">Unlock editing</button>
       </div>
     `;
-    document.getElementById("loginBtn").addEventListener("click", async () => {
-      const email = document.getElementById("loginEmail").value.trim();
-      const pw = document.getElementById("loginPassword").value;
-      const msg = document.getElementById("loginMsg");
-      msg.innerHTML = `<div class="small-note">Signing in…</div>`;
-      const err = await login(email, pw);
+    const input = document.getElementById("pinInput");
+    input.focus();
+    const attempt = async () => {
+      const pin = input.value.trim();
+      const msg = document.getElementById("pinMsg");
+      msg.innerHTML = `<div class="small-note">Checking…</div>`;
+      const err = await verifyPin(pin);
       if(err){ msg.innerHTML = `<div class="err">${escapeHtml(err)}</div>`; return; }
       renderModalBody(modalState.notesMap[circuitKey(modalState.panelSlug, modalState.circuitDef.position)] || {});
+    };
+    document.getElementById("unlockBtn").addEventListener("click", attempt);
+    input.addEventListener("keydown", (e) => { if(e.key === "Enter") attempt(); });
+  }
+
+  function showChangePinForm(){
+    const body = document.getElementById("modalBody");
+    body.innerHTML = `
+      <div class="modal-section">
+        <label>Current PIN</label>
+        <input type="password" inputmode="numeric" maxlength="6" id="oldPin">
+      </div>
+      <div class="modal-section">
+        <label>New 6-digit PIN</label>
+        <input type="password" inputmode="numeric" maxlength="6" id="newPin">
+      </div>
+      <div id="cpMsg"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="cpSaveBtn">Update PIN</button>
+        <button class="btn btn-secondary" id="cpCancelBtn">Cancel</button>
+      </div>
+      <div class="small-note">This changes the PIN for everyone who edits this site — let your team know.</div>
+    `;
+    document.getElementById("cpSaveBtn").addEventListener("click", async () => {
+      const oldPin = document.getElementById("oldPin").value.trim();
+      const newPin = document.getElementById("newPin").value.trim();
+      const msg = document.getElementById("cpMsg");
+      msg.innerHTML = `<div class="small-note">Updating…</div>`;
+      const err = await changePin(oldPin, newPin);
+      if(err){ msg.innerHTML = `<div class="err">${escapeHtml(err)}</div>`; return; }
+      msg.innerHTML = `<div class="ok-msg">PIN updated.</div>`;
+      setTimeout(() => renderModalBody(modalState.notesMap[circuitKey(modalState.panelSlug, modalState.circuitDef.position)] || {}), 700);
     });
-    document.getElementById("forgotBtn").addEventListener("click", async () => {
-      const email = document.getElementById("loginEmail").value.trim();
-      const msg = document.getElementById("loginMsg");
-      if(!email){ msg.innerHTML = `<div class="err">Enter your email above first.</div>`; return; }
-      msg.innerHTML = `<div class="small-note">Sending reset link…</div>`;
-      const err = await sendPasswordReset(email);
-      msg.innerHTML = err
-        ? `<div class="err">${escapeHtml(err)}</div>`
-        : `<div class="ok-msg">Reset link sent — check your email.</div>`;
+    document.getElementById("cpCancelBtn").addEventListener("click", () => {
+      renderModalBody(modalState.notesMap[circuitKey(modalState.panelSlug, modalState.circuitDef.position)] || {});
     });
   }
 
@@ -323,7 +350,7 @@ const App = (() => {
   }
 
   return {
-    initAuth, isEditor, login, logout, sendPasswordReset,
+    initAuth, isEditor, verifyPin, lockEditing, changePin,
     loadNotesForPanel, loadAllNotes, saveNote,
     renderBoard, wireSearch, escapeHtml, circuitKey,
     get sb(){ return sb; }

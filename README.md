@@ -27,10 +27,11 @@ Use your **new work account**, not any account already connected here.
 1. Go to supabase.com → New project. Free tier is plenty for this.
 2. Once it's created, open **SQL Editor** → paste the contents of
    `supabase-schema.sql` → Run. This creates the `circuit_notes` table
-   and the security rules (anyone can read, only signed-in users can write).
-3. Go to **Authentication → Users → Add user**. Create *one* login for
-   editing, e.g. `edits@yourcompany.com` with a password of your choice.
-   This is the single shared "edit mode" login for the whole site.
+   and public-read security rule.
+3. In the same SQL Editor, paste the contents of
+   `supabase-schema-pin-migration.sql` → Run. This sets up 6-digit PIN
+   editing (see below) and locks direct table writes so all edits must
+   go through the PIN check.
 4. Go to **Settings → API**. Copy the **Project URL** and the **anon public**
    key.
 5. Open `assets/app.js` and paste them in at the top:
@@ -39,21 +40,28 @@ Use your **new work account**, not any account already connected here.
    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1...(long string)";
    ```
 
-## 2. Password reset (email)
+## 2. Editing — 6-digit PIN
 
-Supabase Auth has this built in — `reset-password.html` handles it.
+No accounts, no email. Anyone who taps "Enter PIN to edit" and types the
+correct 6-digit PIN can edit any note on the site — same PIN for everyone,
+same idea as a door code.
 
-1. In Supabase: **Authentication → URL Configuration** → add the URL you'll
-   host this site at (e.g. `https://yourname.github.io/panels/`) to
-   **Redirect URLs**.
-2. On any panel page, click a breaker → "Sign in to edit" → "Forgot password?"
-   → enter the editor email → Supabase sends a reset link → it opens
-   `reset-password.html` on your live site → set a new password.
-3. By default Supabase sends these emails from its own shared sender, which
-   works fine for a low-volume internal tool like this. If you want it to
-   come from your own domain later, Supabase's **Authentication → Email
-   Templates / SMTP Settings** lets you plug in your own mail provider —
-   optional, not needed to get started.
+- **Starting PIN is `123456`.** Change it immediately: unlock editing on
+  the live site with that PIN, then use the **Change PIN** link in the
+  edit panel. This updates it for everyone at once — let your team know
+  when you change it.
+- The PIN is checked server-side (Supabase never returns the hash to the
+  browser), so it isn't visible in the site's code or network traffic
+  beyond the single PIN you type in.
+- There's no "forgot PIN" flow by design — it's a shared code, not a
+  personal login. If it's ever forgotten, run this once in Supabase's
+  SQL Editor:
+  ```sql
+  update edit_pin set pin_hash = crypt('654321', gen_salt('bf'));
+  ```
+  (swap `654321` for whatever new PIN you want).
+- This is deliberately lower-security than a real login — appropriate
+  for internal documentation with low stakes, not for anything sensitive.
 
 ## 3. Hosting
 

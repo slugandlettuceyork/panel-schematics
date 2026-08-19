@@ -19,6 +19,36 @@ const App = (() => {
 
   let unlockedPin = null; // the verified PIN, held in memory only — cleared on page reload/close
   let notesCache = {}; // key: `${panelSlug}::${position}` -> row
+  let areaTagTree = []; // [{id,label,subOptions:[{id,label}]}] — loaded from Supabase
+
+  // ---------------- area tags (loaded from Supabase) ----------------
+
+  async function loadAreaTags(){
+    if(!sb) return [];
+    const [tagsRes, subRes] = await Promise.all([
+      sb.from("area_tags").select("*").order("sort_order"),
+      sb.from("area_sub_tags").select("*").order("sort_order"),
+    ]);
+    const tags = tagsRes.data || [];
+    const subs = subRes.data || [];
+    areaTagTree = tags.map(t => ({
+      id: t.id, label: t.label,
+      subOptions: subs.filter(s => s.parent_id === t.id).map(s => ({ id: s.id, label: s.label }))
+    }));
+    return areaTagTree;
+  }
+
+  function findAreaTagLocal(id){
+    return areaTagTree.find(t => t.id === id) || null;
+  }
+
+  function areaLabel(row){
+    if(!row?.area) return "";
+    const tag = findAreaTagLocal(row.area);
+    const main = tag?.label || "(unknown tag)";
+    const sub = row.area_detail ? (tag?.subOptions?.find(s => s.id === row.area_detail)?.label || "") : "";
+    return sub ? `${main} — ${sub}` : main;
+  }
 
   // ---------------- auth (PIN-based) ----------------
 
@@ -141,14 +171,6 @@ const App = (() => {
 
     boardEl.appendChild(cols);
     mountEl.appendChild(boardEl);
-  }
-
-  function areaLabel(row){
-    if(!row?.area) return "";
-    const tag = (typeof findAreaTag === "function") ? findAreaTag(row.area) : null;
-    const main = tag?.label || row.area;
-    const sub = row.area_detail ? (tag?.subOptions?.find(s => s.id === row.area_detail)?.label || row.area_detail) : "";
-    return sub ? `${main} — ${sub}` : main;
   }
 
   function buildBreakerEl(panelSlug, c, notesMap){
@@ -284,7 +306,11 @@ const App = (() => {
     function renderMain(){
       const row = document.getElementById("areaTagRow");
       row.innerHTML = "";
-      AREA_TAGS.forEach(tag => {
+      if(!areaTagTree.length){
+        row.innerHTML = `<div class="small-note">No area tags set up yet.</div>`;
+        return;
+      }
+      areaTagTree.forEach(tag => {
         const t = document.createElement("button");
         t.type = "button";
         t.className = "tag-tile" + (pickedArea === tag.id ? " selected" : "");
@@ -301,7 +327,7 @@ const App = (() => {
 
     function renderSub(){
       const subRow = document.getElementById("subTagRow");
-      const tag = findAreaTag(pickedArea);
+      const tag = findAreaTagLocal(pickedArea);
       if(!tag || !tag.subOptions){
         subRow.style.display = "none";
         subRow.innerHTML = "";
@@ -431,6 +457,7 @@ const App = (() => {
   return {
     initAuth, isEditor, verifyPin, lockEditing, changePin,
     loadNotesForPanel, loadAllNotes, saveNote,
+    loadAreaTags, areaLabel,
     renderBoard, wireSearch, escapeHtml, circuitKey,
     get sb(){ return sb; }
   };

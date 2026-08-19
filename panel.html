@@ -34,7 +34,6 @@
 </div>
 
 <script src="assets/panels-data.js"></script>
-<script src="assets/area-tags.js"></script>
 <script src="assets/app.js"></script>
 <script>
 const params = new URLSearchParams(location.search);
@@ -44,6 +43,7 @@ const panelDef = PANELS[slug];
 
 async function init(){
   await App.initAuth();
+  await App.loadAreaTags();
   updateAuthPill();
   document.addEventListener("authchange", updateAuthPill);
 

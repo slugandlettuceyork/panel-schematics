@@ -39,11 +39,11 @@
 </div>
 
 <script src="assets/panels-data.js"></script>
-<script src="assets/area-tags.js"></script>
 <script src="assets/app.js"></script>
 <script>
 async function init(){
   await App.initAuth();
+  await App.loadAreaTags();
   const grid = document.getElementById("panelGrid");
   grid.innerHTML = "";
   Object.keys(PANELS).forEach(slug => {
@@ -75,8 +75,7 @@ async function init(){
     if(!q){ resultsWrap.style.display = "none"; countEl.textContent = ""; return; }
     const matches = all.filter(c => {
       const row = allNotes[App.circuitKey(c.panelSlug, c.position)] || {};
-      const areaTag = row.area ? findAreaTag(row.area) : null;
-      const areaTxt = [areaTag?.label, areaTag?.subOptions?.find(s => s.id === row.area_detail)?.label].filter(Boolean).join(" ");
+      const areaTxt = App.areaLabel(row);
       const hay = [c.label, c.panelTitle, c.position, row.custom_label, row.notes, areaTxt].filter(Boolean).join(" ").toLowerCase();
       return hay.includes(q);
     });
@@ -85,8 +84,7 @@ async function init(){
     resultsEl.innerHTML = matches.length ? "" : `<li class="small-note">No matches.</li>`;
     matches.forEach(c => {
       const row = allNotes[App.circuitKey(c.panelSlug, c.position)] || {};
-      const areaTag = row.area ? findAreaTag(row.area) : null;
-      const areaTxt = areaTag ? [areaTag.label, areaTag.subOptions?.find(s => s.id === row.area_detail)?.label].filter(Boolean).join(" — ") : "";
+      const areaTxt = App.areaLabel(row);
       const li = document.createElement("li");
       li.innerHTML = `
         <a class="breaker has-note" style="text-decoration:none; display:flex;" href="panel.html?p=${encodeURIComponent(c.panelSlug)}&pos=${encodeURIComponent(c.position)}">
